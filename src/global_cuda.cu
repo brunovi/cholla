@@ -31,4 +31,10 @@ Real *dev_grav_potential;
 Real *temp_potential;
 Real *buffer_potential;
 
+
+//Arrays for potential (half step update) in GPU: Will be set to NULL if not using GRAVITY
+Real *dev_grav_potential_half;
+Real *temp_potential_half;
+Real *buffer_potential_half;
+
 #endif //CUDA

@@ -26,11 +26,11 @@
 #include"io.h"
 #include"hll_cuda.h"
 
-__global__ void Update_Conserved_Variables_3D_half(Real *dev_conserved, Real *dev_conserved_half, Real *dev_F_x, Real *dev_F_y,  Real *dev_F_z, int nx, int ny, int nz, int n_ghost, Real dx, Real dy, Real dz, Real dt, Real gamma, int n_fields, Real density_floor);
+__global__ void Update_Conserved_Variables_3D_half(Real *dev_conserved, Real *dev_conserved_half, Real *dev_F_x, Real *dev_F_y,  Real *dev_F_z, int nx, int ny, int nz, int n_ghost, Real dx, Real dy, Real dz, Real dt, Real gamma, int n_fields, Real density_floor, Real *dev_potential );
 
 
 
-Real VL_Algorithm_3D_CUDA(Real *host_conserved0, Real *host_conserved1, int nx, int ny, int nz, int x_off, int y_off, int z_off, int n_ghost, Real dx, Real dy, Real dz, Real xbound, Real ybound, Real zbound, Real dt, int n_fields, Real density_floor, Real U_floor, Real *host_grav_potential, Real max_dti_slow)
+Real VL_Algorithm_3D_CUDA(Real *host_conserved0, Real *host_conserved1, int nx, int ny, int nz, int x_off, int y_off, int z_off, int n_ghost, Real dx, Real dy, Real dz, Real xbound, Real ybound, Real zbound, Real dt, int n_fields, Real density_floor, Real U_floor, Real *host_grav_potential, Real *host_grav_potential_half, Real max_dti_slow)
 {
   //Here, *host_conserved contains the entire
   //set of conserved variables on the grid
@@ -71,6 +71,7 @@ Real VL_Algorithm_3D_CUDA(Real *host_conserved0, Real *host_conserved1, int nx, 
     tmp2 = host_conserved1;
     //host_grav_potential is NULL if not using GRAVITY
     temp_potential = host_grav_potential;
+    temp_potential_half = host_grav_potential_half;
   }
 
   if ( !memory_allocated ){
@@ -87,10 +88,19 @@ Real VL_Algorithm_3D_CUDA(Real *host_conserved0, Real *host_conserved1, int nx, 
       if ( NULL == ( buffer_potential = (Real *) malloc(BLOCK_VOL*sizeof(Real)) ) ) {
         printf("Failed to allocate CPU Grav_Potential buffer.\n");
       }
+      #ifdef GRAVITY_HALF_UPDATE
+      if ( NULL == ( buffer_potential_half = (Real *) malloc(BLOCK_VOL*sizeof(Real)) ) ) {
+        printf("Failed to allocate CPU Grav_Potential buffer.\n");
+      }
+      #endif
       #else
       buffer_potential = NULL;
+      #ifdef GRAVITY_HALF_UPDATE
+      buffer_potential_half = NULL;
+      #endif //GRAVITY_HALF_UPDATE
       #endif
       temp_potential = buffer_potential;
+      temp_potential_half = buffer_potential_half;
     }
     // allocate an array on the CPU to hold max_dti returned from each thread block
     host_dti_array = (Real *) malloc(ngrid*sizeof(Real));
@@ -136,7 +146,7 @@ Real VL_Algorithm_3D_CUDA(Real *host_conserved0, Real *host_conserved1, int nx, 
   while (block < block_tot) {
 
     // copy the conserved variable block to the buffer
-    host_copy_block_3D(nx, ny, nz, nx_s, ny_s, nz_s, n_ghost, block, block1_tot, block2_tot, block3_tot, remainder1, remainder2, remainder3, BLOCK_VOL, host_conserved0, buffer, n_fields, host_grav_potential, buffer_potential);
+    host_copy_block_3D(nx, ny, nz, nx_s, ny_s, nz_s, n_ghost, block, block1_tot, block2_tot, block3_tot, remainder1, remainder2, remainder3, BLOCK_VOL, host_conserved0, buffer, n_fields, host_grav_potential, buffer_potential, host_grav_potential_half, buffer_potential_half );
 
     // calculate the global x, y, and z offsets of this subgrid block
     get_offsets_3D(nx_s, ny_s, nz_s, n_ghost, x_off, y_off, z_off, block, block1_tot, block2_tot, block3_tot, remainder1, remainder2, remainder3, &x_off_s, &y_off_s, &z_off_s);
@@ -145,7 +155,10 @@ Real VL_Algorithm_3D_CUDA(Real *host_conserved0, Real *host_conserved1, int nx, 
     CudaSafeCall( cudaMemcpy(dev_conserved, tmp1, n_fields*BLOCK_VOL*sizeof(Real), cudaMemcpyHostToDevice) );
     #if defined( GRAVITY )
     CudaSafeCall( cudaMemcpy(dev_grav_potential, temp_potential, BLOCK_VOL*sizeof(Real), cudaMemcpyHostToDevice) );
-    #endif
+    #ifdef GRAVITY_HALF_UPDATE
+    CudaSafeCall( cudaMemcpy(dev_grav_potential_half, temp_potential_half, BLOCK_VOL*sizeof(Real), cudaMemcpyHostToDevice) );
+    #endif//GRAVITY_HALF_UPDATE
+    #endif//GRAVITY
  
 
     // Step 1: Use PCM reconstruction to put primitive variables into interface arrays
@@ -178,7 +191,7 @@ Real VL_Algorithm_3D_CUDA(Real *host_conserved0, Real *host_conserved1, int nx, 
 
 
     // Step 3: Update the conserved variables half a timestep 
-    hipLaunchKernelGGL(Update_Conserved_Variables_3D_half, dim1dGrid, dim1dBlock, 0, 0, dev_conserved, dev_conserved_half, F_x, F_y, F_z, nx_s, ny_s, nz_s, n_ghost, dx, dy, dz, 0.5*dt, gama, n_fields, density_floor );
+    hipLaunchKernelGGL(Update_Conserved_Variables_3D_half, dim1dGrid, dim1dBlock, 0, 0, dev_conserved, dev_conserved_half, F_x, F_y, F_z, nx_s, ny_s, nz_s, n_ghost, dx, dy, dz, 0.5*dt, gama, n_fields, density_floor,  dev_grav_potential_half );
     CudaCheckError();
 
 
@@ -338,7 +351,7 @@ void Free_Memory_VL_3D(){
 
 }
 
-__global__ void Update_Conserved_Variables_3D_half(Real *dev_conserved, Real *dev_conserved_half, Real *dev_F_x, Real *dev_F_y,  Real *dev_F_z, int nx, int ny, int nz, int n_ghost, Real dx, Real dy, Real dz, Real dt, Real gamma, int n_fields, Real density_floor )
+__global__ void Update_Conserved_Variables_3D_half(Real *dev_conserved, Real *dev_conserved_half, Real *dev_F_x, Real *dev_F_y,  Real *dev_F_z, int nx, int ny, int nz, int n_ghost, Real dx, Real dy, Real dz, Real dt, Real gamma, int n_fields, Real density_floor, Real *dev_potential   )
 {
   Real dtodx = dt/dx;
   Real dtody = dt/dy;
@@ -365,6 +378,25 @@ __global__ void Update_Conserved_Variables_3D_half(Real *dev_conserved, Real *de
   #ifdef DENSITY_FLOOR
   Real dens_0;
   #endif
+  
+  #if defined(GRAVITY) && defined(GRAVITY_HALF_UPDATE)
+  Real d, d_inv, vx, vy, vz;
+  Real gx, gy, gz, d_n, d_inv_n, vx_n, vy_n, vz_n;
+  Real pot_l, pot_r;
+  int id_l, id_r;
+  gx = 0.0;
+  gy = 0.0;
+  gz = 0.0;
+  
+  #ifdef GRAVITY_5_POINTS_GRADIENT
+  int id_ll, id_rr;
+  Real pot_ll, pot_rr;
+  #endif
+  
+  #ifdef COUPLE_DELTA_E_KINETIC
+  Real Ekin_0, Ekin_1;
+  #endif//COUPLE_DELTA_E_KINETIC
+  #endif //GRAVITY_HALF_UPDATE
 
   // threads corresponding to all cells except outer ring of ghost cells do the calculation
   if (xid > 0 && xid < nx-1 && yid > 0 && yid < ny-1 && zid > 0 && zid < nz-1)
@@ -393,6 +425,14 @@ __global__ void Update_Conserved_Variables_3D_half(Real *dev_conserved, Real *de
     vy_jpo = dev_conserved[2*n_cells + jpo] / dev_conserved[jpo]; 
     vz_kmo = dev_conserved[3*n_cells + kmo] / dev_conserved[kmo]; 
     vz_kpo = dev_conserved[3*n_cells + kpo] / dev_conserved[kpo]; 
+    #endif
+    
+    #if defined(GRAVITY) &&  defined(GRAVITY_HALF_UPDATE) 
+    d  =  dev_conserved[            id];
+    d_inv = 1.0 / d;
+    vx =  dev_conserved[1*n_cells + id] * d_inv;
+    vy =  dev_conserved[2*n_cells + id] * d_inv;
+    vz =  dev_conserved[3*n_cells + id] * d_inv;
     #endif
   
     // update the conserved variable array
@@ -447,6 +487,87 @@ __global__ void Update_Conserved_Variables_3D_half(Real *dev_conserved, Real *de
       #endif
     }
     #endif
+    
+    #if defined(GRAVITY) &&  defined(GRAVITY_HALF_UPDATE) 
+    d_n  =  dev_conserved_half[            id];
+    d_inv_n = 1.0 / d_n;
+    vx_n =  dev_conserved_half[1*n_cells + id] * d_inv_n;
+    vy_n =  dev_conserved_half[2*n_cells + id] * d_inv_n;
+    vz_n =  dev_conserved_half[3*n_cells + id] * d_inv_n;
+    
+    #ifdef COUPLE_DELTA_E_KINETIC
+    //The Kinetic Energy before adding the gravity term to the Momentum
+    Ekin_0 = 0.5 * d_n * ( vx_n*vx_n + vy_n*vy_n + vz_n*vz_n );
+    #endif
+    
+    // Calculate the -gradient of potential
+    // Get X componet of gravity field
+    id_l = (xid-1) + (yid)*nx + (zid)*nx*ny;
+    id_r = (xid+1) + (yid)*nx + (zid)*nx*ny;
+    pot_l = dev_potential[id_l];
+    pot_r = dev_potential[id_r];
+    #ifdef GRAVITY_5_POINTS_GRADIENT
+    id_ll = (xid-2) + (yid)*nx + (zid)*nx*ny;
+    id_rr = (xid+2) + (yid)*nx + (zid)*nx*ny;
+    pot_ll = dev_potential[id_ll];
+    pot_rr = dev_potential[id_rr];
+    gx = -1 * ( -pot_rr + 8*pot_r - 8*pot_l + pot_ll) / (12*dx);
+    #else
+    gx = -0.5*( pot_r - pot_l ) / dx;
+    #endif
+    
+    //Get Y componet of gravity field
+    id_l = (xid) + (yid-1)*nx + (zid)*nx*ny;
+    id_r = (xid) + (yid+1)*nx + (zid)*nx*ny;
+    pot_l = dev_potential[id_l];
+    pot_r = dev_potential[id_r];
+    #ifdef GRAVITY_5_POINTS_GRADIENT
+    id_ll = (xid) + (yid-2)*nx + (zid)*nx*ny;
+    id_rr = (xid) + (yid+2)*nx + (zid)*nx*ny;
+    pot_ll = dev_potential[id_ll];
+    pot_rr = dev_potential[id_rr];
+    gy = -1 * ( -pot_rr + 8*pot_r - 8*pot_l + pot_ll) / (12*dx);
+    #else
+    gy = -0.5*( pot_r - pot_l ) / dy;
+    #endif
+    //Get Z componet of gravity field
+    id_l = (xid) + (yid)*nx + (zid-1)*nx*ny;
+    id_r = (xid) + (yid)*nx + (zid+1)*nx*ny;
+    pot_l = dev_potential[id_l];
+    pot_r = dev_potential[id_r];
+    #ifdef GRAVITY_5_POINTS_GRADIENT
+    id_ll = (xid) + (yid)*nx + (zid-2)*nx*ny;
+    id_rr = (xid) + (yid)*nx + (zid+2)*nx*ny;
+    pot_ll = dev_potential[id_ll];
+    pot_rr = dev_potential[id_rr];
+    gz = -1 * ( -pot_rr + 8*pot_r - 8*pot_l + pot_ll) / (12*dx);
+    #else
+    gz = -0.5*( pot_r - pot_l ) / dz;
+    #endif
+    
+    //Add gravity term to Momentum
+    dev_conserved_half[  n_cells + id] += 0.5*dt*gx*(d + d_n);
+    dev_conserved_half[2*n_cells + id] += 0.5*dt*gy*(d + d_n);
+    dev_conserved_half[3*n_cells + id] += 0.5*dt*gz*(d + d_n);
+    
+    //Add gravity term to Total Energy
+    #ifdef COUPLE_GRAVITATIONAL_WORK
+    //Add the work done by the gravitational force 
+    dev_conserved_half[4*n_cells + id] += 0.5* dt * ( gx*(d*vx + d_n*vx_n) +  gy*(d*vy + d_n*vy_n) +  gz*(d*vz + d_n*vz_n) );
+    #endif
+    
+    #ifdef COUPLE_DELTA_E_KINETIC
+    //Add the the exact change in kinetic energy due to the gravity term added to the Momentum
+    vx_n =  dev_conserved_half[1*n_cells + id] * d_inv_n;
+    vy_n =  dev_conserved_half[2*n_cells + id] * d_inv_n;
+    vz_n =  dev_conserved_half[3*n_cells + id] * d_inv_n;
+    Ekin_1 = 0.5 * d_n * ( vx_n*vx_n + vy_n*vy_n + vz_n*vz_n );
+    dev_conserved_half[4*n_cells + id] += Ekin_1 - Ekin_0;
+    #endif
+    
+    
+    #endif //GRAVITY_HALF_UPDATE
+    
     //if (dev_conserved_half[id] < 0.0 || dev_conserved_half[id] != dev_conserved_half[id] || dev_conserved_half[4*n_cells+id] < 0.0 || dev_conserved_half[4*n_cells+id] != dev_conserved_half[4*n_cells+id]) {
       //printf("%3d %3d %3d Thread crashed in half step update. d: %e E: %e\n", xid, yid, zid, dev_conserved_half[id], dev_conserved_half[4*n_cells+id]);
     //}    
