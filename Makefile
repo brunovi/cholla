@@ -109,7 +109,8 @@ DFLAGS += -DTIDES
 # Use Grackle for cooling in cosmological simulations
 # DFLAGS += -DCOOLING_GRACKLE -DCONFIG_BFLOAT_8 -DOUTPUT_TEMPERATURE -DOUTPUT_CHEMISTRY -DSCALAR -DN_OMP_THREADS_GRACKLE=20
 
-SYSTEM = "Lux"
+# SYSTEM = "Lux"
+SYSTEM = "Shamrock"
 
 ifdef HIP_PLATFORM
   DFLAGS += -DO_HIP
@@ -136,7 +137,7 @@ CC = mpicc
 CXX = mpic++
 endif
 CXXFLAGS += -std=c++11
-GPUFLAGS += -std=c++11
+GPUFLAGS += -std=c++11 -arch sm_70
 DFLAGS += -DPARIS_NO_GPU_MPI
 OMP_NUM_THREADS = 20
 FFTW_ROOT = /data/groups/comp-astro/bruno/code_mpi_local/fftw-3.3.8
@@ -149,8 +150,8 @@ ifeq ($(SYSTEM),"Shamrock")
 CC = gcc
 CXX = g++
 ifeq ($(findstring -DMPI_CHOLLA,$(DFLAGS)),-DMPI_CHOLLA)
-CC = mpicc
-CXX = mpic++
+CC = $(MPI_HOME)/bin/mpicc
+CXX = $(MPI_HOME)/bin/mpicxx
 endif
 CXXFLAGS += -std=c++11
 GPUFLAGS += -std=c++11
