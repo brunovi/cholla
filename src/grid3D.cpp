@@ -270,13 +270,18 @@ void Grid3D::AllocateMemory(void)
   
   #if defined( GRAVITY ) 
   C.Grav_potential = (Real *) malloc(H.n_cells*sizeof(Real));
-	
+  
+  #ifdef GRAVITY_HALF_UPDATE
+  C.Grav_potential_half = (Real *) malloc(H.n_cells*sizeof(Real));
+	#endif
+  
 	#ifdef POISSON_TEST
 	C.analyticalPotential = (Real *) malloc(H.n_cells * sizeof(Real));
 	#endif
   
 	#else
   C.Grav_potential = NULL;
+  C.Grav_potential_half = NULL;
   #endif
   
   // initialize array
@@ -605,7 +610,7 @@ Real Grid3D::Update_Grid(void)
     max_dti = CTU_Algorithm_3D_CUDA(g0, g1, H.nx, H.ny, H.nz, x_off, y_off, z_off, H.n_ghost, H.dx, H.dy, H.dz, H.xbound, H.ybound, H.zbound, H.dt, H.n_fields, density_floor, U_floor, C.Grav_potential, max_dti_slow );
     #endif //not_VL
     #ifdef VL
-    max_dti = VL_Algorithm_3D_CUDA(g0, g1, H.nx, H.ny, H.nz, x_off, y_off, z_off, H.n_ghost, H.dx, H.dy, H.dz, H.xbound, H.ybound, H.zbound, H.dt, H.n_fields, density_floor, U_floor, C.Grav_potential, max_dti_slow );
+    max_dti = VL_Algorithm_3D_CUDA(g0, g1, H.nx, H.ny, H.nz, x_off, y_off, z_off, H.n_ghost, H.dx, H.dy, H.dz, H.xbound, H.ybound, H.zbound, H.dt, H.n_fields, density_floor, U_floor, C.Grav_potential, C.Grav_potential_half, max_dti_slow );
     #endif //VL
     #ifdef SIMPLE
     max_dti = Simple_Algorithm_3D_CUDA(g0, g1, H.nx, H.ny, H.nz, x_off, y_off, z_off, H.n_ghost, H.dx, H.dy, H.dz, H.xbound, H.ybound, H.zbound, H.dt, H.n_fields, density_floor, U_floor, C.Grav_potential, max_dti_slow );

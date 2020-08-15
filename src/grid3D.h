@@ -348,6 +348,10 @@ class Grid3D
       *  \brief Array containing the gravitational potential of each cell, only tracked separately when using  GRAVITY. */
       Real *Grav_potential;
       
+      /*! \var Grav_potential_half
+      *  \brief Array containing the gravitational potential for the half_update step of each cell, only tracked separately when using  GRAVITY. */
+      Real *Grav_potential_half;
+      
       /*! \var density
        *  \brief Array containing the density of each cell in the grid at the beginning of the timestep */
       Real *density_0;

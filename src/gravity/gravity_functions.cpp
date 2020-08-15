@@ -516,6 +516,18 @@ void Grid3D::Extrapolate_Grav_Potential_Function( int g_start, int g_end ){
         potential_out[id_grid] = pot_extrp;
         //Set phi_n-1 = phi_n, to use it during the next step 
         Grav.F.potential_1_h[id_pot] = pot_now;
+        
+        #ifdef GRAVITY_HALF_UPDATE
+        // Save the potential for half-step hydro update
+        #ifdef TIDES
+//			Add the extrapolated tidal potential, but only if the relaxation has ended!
+        if ( S.relaxed == 1 ){
+          //RICARDO: WILL NEED TO ADD TIDES TO pot_now FOR HALF STEP GRAVITY UPDATE (tides shoud be evaluated a time "t" and not "t + 1/2dt")
+          pot_now += S.getTidalPotential(posx, posy, posz, S.extCij, S.extCijk, S.extCijkl);
+        }
+        #endif//TIDES
+        C.Grav_potential_half[id_grid] = pot_now;
+        #endif//GRAVITY_HALF_UPDATE
       }
     }
   }
