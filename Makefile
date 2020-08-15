@@ -21,8 +21,6 @@ DFLAGS += -DMPI_CHOLLA -DBLOCK
 #DFLAGS += -DPRECISION=1
 DFLAGS += -DPRECISION=2
 
-DFLAGS += -DH_CORRECTION
-
 # Output
 #DFLAGS += -DBINARY
 DFLAGS += -DHDF5
@@ -92,7 +90,7 @@ DFLAGS += $(POISSON_SOLVER)
 # DFLAGS += -DPARTICLES_KDK
 
 # Turn OpenMP on for CPU calculations
-DFLAGS += -DPARALLEL_OMP
+# DFLAGS += -DPARALLEL_OMP
 OMP_NUM_THREADS ?= 16
 DFLAGS += -DN_OMP_THREADS=$(OMP_NUM_THREADS)
 #DFLAGS += -DPRINT_OMP_DOMAIN
@@ -151,12 +149,12 @@ CC = gcc
 CXX = g++
 ifeq ($(findstring -DMPI_CHOLLA,$(DFLAGS)),-DMPI_CHOLLA)
 CC = $(MPI_HOME)/bin/mpicc
-CXX = $(MPI_HOME)/bin/mpicxx
+CXX = $(MPI_HOME)/bin/mpic++
 endif
 CXXFLAGS += -std=c++11
 GPUFLAGS += -std=c++11
 DFLAGS += -DPARIS_NO_GPU_MPI
-OMP_NUM_THREADS = 20
+OMP_NUM_THREADS = 10
 FFTW_ROOT = /home/bruno/code/fftw-3.3.8
 PFFT_ROOT = /home/bruno/code/pfft
 GRAKLE_HOME = /home/bruno/local
@@ -211,7 +209,7 @@ ifdef HIP_PLATFORM
   LDFLAGS += $(GPUFLAGS)
 else
   GPUCXX := nvcc
-  GPUFLAGS += --expt-extended-lambda -g -O3 -arch sm_70 -fmad=false
+  GPUFLAGS += --expt-extended-lambda -g -O3 -fmad=false
   LD := $(CXX)
   LDFLAGS += $(CXXFLAGS)
 endif

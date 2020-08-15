@@ -5,6 +5,7 @@
 
 #include <stdio.h>
 #include <cmath>
+#include <string.h> 
 #include "../global.h"
 //#include "../grid3D.h"
 

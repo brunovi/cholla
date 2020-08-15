@@ -147,7 +147,6 @@ void Grid3D::Compute_Potential_Isolated_Boundary( int direction, int side,  int 
   cm_pos_z = 0.0;
   #endif//TIDES
   
-  int i, j, k, id;
   Real pot_val;
   int i, j, k, id;
   for ( k=0; k<nGHST; k++ ){
