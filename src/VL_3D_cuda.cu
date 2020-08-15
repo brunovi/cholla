@@ -127,8 +127,14 @@ Real VL_Algorithm_3D_CUDA(Real *host_conserved0, Real *host_conserved1, int nx, 
     
     #if defined( GRAVITY ) 
     CudaSafeCall( cudaMalloc((void**)&dev_grav_potential, BLOCK_VOL*sizeof(Real)) );
+    #ifdef GRAVITY_HALF_UPDATE
+    CudaSafeCall( cudaMalloc((void**)&dev_grav_potential_half, BLOCK_VOL*sizeof(Real)) );
+    #endif
     #else
     dev_grav_potential = NULL;
+    #ifdef GRAVITY_HALF_UPDATE
+    dev_grav_potential_half = NULL;
+    #endif //GRAVITY_HALF_UPDATE
     #endif
     
     #ifndef DYNAMIC_GPU_ALLOC 

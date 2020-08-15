@@ -219,7 +219,7 @@ void host_copy_block_3D(int nx, int ny, int nz, int nx_s, int ny_s, int nz_s, in
         #if defined( GRAVITY ) 
         memcpy(&buffer_potential[j*nx_s + k*nx_s*ny_s], &host_grav_potential[x_host + j*nx + k*nx*ny], nx_s*sizeof(Real));
         #if defined( GRAVITY_HALF_UPDATE ) && defined( VL )
-        // memcpy(&buffer_potential_half[j*nx_s + k*nx_s*ny_s], &host_grav_potential_half[x_host + j*nx + k*nx*ny], nx_s*sizeof(Real));
+        memcpy(&buffer_potential_half[j*nx_s + k*nx_s*ny_s], &host_grav_potential_half[x_host + j*nx + k*nx*ny], nx_s*sizeof(Real));
         #endif
         #endif
       }
@@ -251,7 +251,7 @@ void host_copy_block_3D(int nx, int ny, int nz, int nx_s, int ny_s, int nz_s, in
       #if defined( GRAVITY )
       memcpy(&buffer_potential[k*nx_s*ny_s], &host_grav_potential[y_host + k*nx*ny], nx_s*ny_s*sizeof(Real));
       #if defined( GRAVITY_HALF_UPDATE ) && defined( VL )
-      // memcpy(&buffer_potential_half[k*nx_s*ny_s], &host_grav_potential_half[y_host + k*nx*ny], nx_s*ny_s*sizeof(Real));
+      memcpy(&buffer_potential_half[k*nx_s*ny_s], &host_grav_potential_half[y_host + k*nx*ny], nx_s*ny_s*sizeof(Real));
       #endif
       #endif
     }
@@ -282,7 +282,7 @@ void host_copy_block_3D(int nx, int ny, int nz, int nx_s, int ny_s, int nz_s, in
     #if defined( GRAVITY ) 
     memcpy(&buffer_potential[0], &host_grav_potential[z_host], BLOCK_VOL*sizeof(Real));
     #if defined( GRAVITY_HALF_UPDATE ) && defined( VL )
-    // memcpy(&buffer_potential_half[0], &host_grav_potential_half[z_host], BLOCK_VOL*sizeof(Real));
+    memcpy(&buffer_potential_half[0], &host_grav_potential_half[z_host], BLOCK_VOL*sizeof(Real));
     #endif
     #endif
 
@@ -323,7 +323,7 @@ void host_copy_block_3D(int nx, int ny, int nz, int nx_s, int ny_s, int nz_s, in
       #if defined( GRAVITY )
       memcpy(&buffer_potential[k*nx_s*ny_s], &host_grav_potential[z_host + y_host + k*nx*ny], nx_s*ny_s*sizeof(Real)); 
       #if defined( GRAVITY_HALF_UPDATE ) && defined( VL )
-      // memcpy(&buffer_potential_half[k*nx_s*ny_s], &host_grav_potential_half[z_host + y_host + k*nx*ny], nx_s*ny_s*sizeof(Real)); 
+      memcpy(&buffer_potential_half[k*nx_s*ny_s], &host_grav_potential_half[z_host + y_host + k*nx*ny], nx_s*ny_s*sizeof(Real)); 
       #endif
       #endif
     }
@@ -374,7 +374,7 @@ void host_copy_block_3D(int nx, int ny, int nz, int nx_s, int ny_s, int nz_s, in
         #if defined( GRAVITY ) 
         memcpy(&buffer_potential[j*nx_s + k*nx_s*ny_s], &host_grav_potential[x_host + y_host + z_host + j*nx + k*nx*ny], nx_s*sizeof(Real)); 
         #if defined( GRAVITY_HALF_UPDATE ) && defined( VL )
-        // memcpy(&buffer_potential_half[j*nx_s + k*nx_s*ny_s], &host_grav_potential_half[x_host + y_host + z_host + j*nx + k*nx*ny], nx_s*sizeof(Real)); 
+        memcpy(&buffer_potential_half[j*nx_s + k*nx_s*ny_s], &host_grav_potential_half[x_host + y_host + z_host + j*nx + k*nx*ny], nx_s*sizeof(Real)); 
         #endif
         #endif
       }
