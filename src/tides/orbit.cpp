@@ -74,13 +74,13 @@ void Grid3D::updateCOM(){
 
 	S.Mbox = totrhoTemp * H.dx * H.dy * H.dz;
 
-  S.posSt[0] = posxStTemp / totrho;
-  S.posSt[1] = posyStTemp / totrho;
-  S.posSt[2] = poszStTemp / totrho;
+  S.posSt[0] = posxStTemp / totrhoTemp;
+  S.posSt[1] = posyStTemp / totrhoTemp;
+  S.posSt[2] = poszStTemp / totrhoTemp;
 
-	S.velSt[0] /= velxStTemp / totrho;
-	S.velSt[1] /= velyStTemp / totrho;
-	S.velSt[2] /= velzStTemp / totrho;
+	S.velSt[0] /= velxStTemp / totrhoTemp;
+	S.velSt[1] /= velyStTemp / totrhoTemp;
+	S.velSt[2] /= velzStTemp / totrhoTemp;
 
 	#endif//MPI_CHOLLA
 
