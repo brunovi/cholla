@@ -31,6 +31,7 @@ public:
 	Real tdynOrb;
 	Real Mbh;
 	Real q;
+	Real mu;
 	Real rt;
 	Real t0;
 	Real tOrb;
