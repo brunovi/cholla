@@ -150,24 +150,6 @@ __global__ void Iteration_Step_SOR( int n_cells, Real *density_d, Real *potentia
   indx_b = tid_z-1;  //Bottom
   indx_t = tid_z+1;  //Top
   
-  //Boundary Conditions are loaded to the potential array, the natural indices work!
-  
-  // //Periodic Boundary conditions
-  // indx_l = tid_x == n_ghost          ?    nx_pot-n_ghost-1 : tid_x-1;  //Left
-  // indx_r = tid_x == nx_pot-n_ghost-1 ?             n_ghost : tid_x+1;  //Right
-  // indx_d = tid_y == n_ghost          ?    ny_pot-n_ghost-1 : tid_y-1;  //Down
-  // indx_u = tid_y == ny_pot-n_ghost-1 ?             n_ghost : tid_y+1;  //Up
-  // indx_b = tid_z == n_ghost          ?    nz_pot-n_ghost-1 : tid_z-1;  //Bottom
-  // indx_t = tid_z == nz_pot-n_ghost-1 ?             n_ghost : tid_z+1;  //Top
-  // 
-  // //Zero Gradient Boundary conditions
-  // indx_l = tid_x == n_ghost          ?    tid_x+1 : tid_x-1;  //Left
-  // indx_r = tid_x == nx_pot-n_ghost-1 ?    tid_x-1 : tid_x+1;  //Right
-  // indx_d = tid_y == n_ghost          ?    tid_y+1 : tid_y-1;  //Down
-  // indx_u = tid_y == ny_pot-n_ghost-1 ?    tid_y-1 : tid_y+1;  //Up
-  // indx_b = tid_z == n_ghost          ?    tid_z+1 : tid_z-1;  //Bottom
-  // indx_t = tid_z == nz_pot-n_ghost-1 ?    tid_z-1 : tid_z+1;  //Top
-  
   
   
   Real rho, phi_c, phi_l, phi_r, phi_d, phi_u, phi_b, phi_t, phi_new;
@@ -180,13 +162,46 @@ __global__ void Iteration_Step_SOR( int n_cells, Real *density_d, Real *potentia
   phi_b = potential_d[ tid_x + tid_y*nx_pot + indx_b*nx_pot*ny_pot ];
   phi_t = potential_d[ tid_x + tid_y*nx_pot + indx_t*nx_pot*ny_pot ];
   
+  #ifdef SOR_4TH_ORDER
+  // //Set neighbors ids
+  int indx_ll, indx_rr, indx_dd, indx_uu, indx_bb, indx_tt;
+  
+  indx_ll = tid_x-2;  //Two Left
+  indx_rr = tid_x+2;  //Two Right
+  indx_dd = tid_y-2;  //Two Down
+  indx_uu = tid_y+2;  //Two Up
+  indx_bb = tid_z-2;  //Two Bottom
+  indx_tt = tid_z+2;  //Two Top
+  
+  Real phi_ll, phi_rr, phi_dd, phi_uu, phi_bb, phi_tt;
+  phi_ll = potential_d[ indx_ll + tid_y*nx_pot + tid_z*nx_pot*ny_pot ];
+  phi_rr = potential_d[ indx_rr + tid_y*nx_pot + tid_z*nx_pot*ny_pot ];
+  phi_dd = potential_d[ tid_x + indx_dd*nx_pot + tid_z*nx_pot*ny_pot ];
+  phi_uu = potential_d[ tid_x + indx_uu*nx_pot + tid_z*nx_pot*ny_pot ];
+  phi_bb = potential_d[ tid_x + tid_y*nx_pot + indx_bb*nx_pot*ny_pot ];
+  phi_tt = potential_d[ tid_x + tid_y*nx_pot + indx_tt*nx_pot*ny_pot ];
+  
+  #endif
+  
+  
+  #ifdef SOR_4TH_ORDER
+  phi_new = (1. - omega) *phi_c
+              + ( omega / 90. ) * ( - phi_ll + 16. * phi_l + 16. * phi_r - phi_rr
+																		- phi_dd + 16. * phi_d + 16. * phi_u - phi_uu
+																		- phi_bb + 16. * phi_b + 16. * phi_t - phi_tt
+																		- 12. * dx * dx * rho			);
+
+  // phi_new = (1-omega)*phi_c + omega/6*( phi_l + phi_r + phi_d + phi_u + phi_b + phi_t - dx*dx*rho );
+
+  #else
   phi_new = (1-omega)*phi_c + omega/6*( phi_l + phi_r + phi_d + phi_u + phi_b + phi_t - dx*dx*rho );
+  #endif
+  
+  
   potential_d[tid_pot] = phi_new;
-  // potential_d[tid_pot] = parity + 1;
   
   //Check the residual for the convergence criteria
   if ( ( fabs( ( phi_new - phi_c ) / phi_c ) > epsilon ) ) converged_d[0] = 0;
-  // if ( ( fabs( ( phi_new - phi_c ) ) > epsilon ) ) converged_d[0] = 0;
   
 
   

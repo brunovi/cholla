@@ -8,6 +8,7 @@
 
 // #define TIME_SOR
 // #define HALF_SIZE_BOUNDARIES
+// #define SOR_4TH_ORDER
 
 class Potential_SOR_3D{
   public:

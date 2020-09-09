@@ -41,7 +41,12 @@ void Potential_SOR_3D::Initialize( Real Lx, Real Ly, Real Lz, Real x_min, Real y
   n_cells_potential = nx_pot*ny_pot*nz_pot;
   n_cells_total = nx_total*ny_total*nz_total;
   
+  #ifdef SOR_4TH_ORDER
+  chprintf( " Solving 4th Order Poisson Equation\n" );
+  n_ghost_transfer = 2;
+  #else
   n_ghost_transfer = 1;
+  #endif
   
   size_buffer_x = n_ghost_transfer * ny_pot * nz_pot;
   size_buffer_y = n_ghost_transfer * nx_pot * nz_pot;
