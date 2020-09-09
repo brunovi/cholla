@@ -61,6 +61,12 @@ class Potential_SOR_3D{
   Real *density_d;
   Real *potential_d;
   
+  #ifdef SOR_4TH_ORDER
+  Real *potential_d_1;  
+  Real *pot_temp_pointer;
+  #endif
+  
+  
   bool *converged_d;
   
   bool *converged_h;
@@ -123,6 +129,12 @@ class Potential_SOR_3D{
   void Poisson_iteration_Patial_1( int n_cells, int nx, int ny, int nz, int n_ghost_potential, Real dx, Real dy, Real dz, Real omega, Real epsilon, Real *density_d, Real *potential_d, bool *converged_h, bool *converged_d );
   void Poisson_iteration_Patial_2( int n_cells, int nx, int ny, int nz, int n_ghost_potential, Real dx, Real dy, Real dz, Real omega, Real epsilon, Real *density_d, Real *potential_d, bool *converged_h, bool *converged_d );
   void Poisson_Partial_Iteration( int n_step, Real omega, Real epsilon );
+    
+    
+  #ifdef SOR_4TH_ORDER
+  void Poisson_4th_Order_Iteration( Real omega, Real epsilon );
+  void Poisson_iteration_4th_Order( int n_cells, int nx, int ny, int nz, int n_ghost_potential, Real dx, Real dy, Real dz, Real omega, Real epsilon, Real *density_d, Real *potential_d, Real *potential_d_out, bool *converged_h, bool *converged_d );  
+  #endif
     
   
   void Load_Transfer_Buffer_GPU( int direction, int side, int nx, int ny, int nz, int n_ghost_transfer, int n_ghost_potential, Real *potential_d, Real *transfer_buffer_d  );

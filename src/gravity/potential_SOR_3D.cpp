@@ -100,6 +100,10 @@ void Potential_SOR_3D::AllocateMemory_GPU( void ){
   Allocate_Array_GPU_Real( &F.boundaries_buffer_z0_d, size_buffer_z);
   Allocate_Array_GPU_Real( &F.boundaries_buffer_z1_d, size_buffer_z);
   
+  #ifdef SOR_4TH_ORDER
+  Allocate_Array_GPU_Real( &F.potential_d_1, n_cells_potential );
+  #endif
+  
   #ifdef MPI_CHOLLA
   Allocate_Array_GPU_Real( &F.recv_boundaries_buffer_x0_d, size_buffer_x);
   Allocate_Array_GPU_Real( &F.recv_boundaries_buffer_x1_d, size_buffer_x);
@@ -141,6 +145,17 @@ void Potential_SOR_3D::Poisson_Partial_Iteration( int n_step, Real omega, Real e
 }
 
 
+#ifdef SOR_4TH_ORDER
+void Potential_SOR_3D::Poisson_4th_Order_Iteration( Real omega, Real epsilon ){
+  Poisson_iteration_4th_Order( n_cells_local, nx_local, ny_local, nz_local, n_ghost, dx, dy, dz, omega, epsilon, F.density_d, F.potential_d, F.potential_d_1, F.converged_h, F.converged_d );
+
+  // Swap Potential Pointers
+  F.pot_temp_pointer = F.potential_d;
+  F.potential_d = F.potential_d_1;
+  F.potential_d_1 = F.pot_temp_pointer;
+}
+#endif
+
 void Grid3D::Get_Potential_SOR( Real Grav_Constant, Real dens_avrg, Real current_a, struct parameters *P ){
   
   #ifdef TIME_SOR
@@ -180,6 +195,16 @@ void Grid3D::Get_Potential_SOR( Real Grav_Constant, Real dens_avrg, Real current
     set_boundaries = false;
     if ( n_iter % n_iter_per_boundaries_transfer == 0 ) set_boundaries = true;
     
+    #ifdef SOR_4TH_ORDER
+    
+    if ( set_boundaries ){
+      Grav.Poisson_solver.TRANSFER_POISSON_BOUNDARIES = true;
+      Set_Boundary_Conditions( *P );
+      Grav.Poisson_solver.TRANSFER_POISSON_BOUNDARIES = false;
+    }
+    Grav.Poisson_solver.Poisson_4th_Order_Iteration(omega, epsilon ); 
+    
+    #else
     // First Partial Iteration 
     Grav.Poisson_solver.iteration_parity = 0;
     if ( set_boundaries ){
@@ -198,6 +223,8 @@ void Grid3D::Get_Potential_SOR( Real Grav_Constant, Real dens_avrg, Real current
       Grav.Poisson_solver.TRANSFER_POISSON_BOUNDARIES = false;
     }
     Grav.Poisson_solver.Poisson_Partial_Iteration( Grav.Poisson_solver.iteration_parity, omega, epsilon );
+
+    #endif
 
     // Get convergence state 
     #ifdef MPI_CHOLLA

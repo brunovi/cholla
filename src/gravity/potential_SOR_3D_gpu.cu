@@ -151,7 +151,6 @@ __global__ void Iteration_Step_SOR( int n_cells, Real *density_d, Real *potentia
   indx_t = tid_z+1;  //Top
   
   
-  
   Real rho, phi_c, phi_l, phi_r, phi_d, phi_u, phi_b, phi_t, phi_new;
   rho = density_d[tid];
   phi_c = potential_d[tid_pot];
@@ -162,10 +161,48 @@ __global__ void Iteration_Step_SOR( int n_cells, Real *density_d, Real *potentia
   phi_b = potential_d[ tid_x + tid_y*nx_pot + indx_b*nx_pot*ny_pot ];
   phi_t = potential_d[ tid_x + tid_y*nx_pot + indx_t*nx_pot*ny_pot ];
   
-  #ifdef SOR_4TH_ORDER
+  phi_new = (1-omega)*phi_c + omega/6*( phi_l + phi_r + phi_d + phi_u + phi_b + phi_t - dx*dx*rho );
+  potential_d[tid_pot] = phi_new;
+  // potential_d[tid_pot] = parity + 1;
+  
+  //Check the residual for the convergence criteria
+  if ( ( fabs( ( phi_new - phi_c ) / phi_c ) > epsilon ) ) converged_d[0] = 0;
+  // if ( ( fabs( ( phi_new - phi_c ) ) > epsilon ) ) converged_d[0] = 0;
+  
+}
+
+__global__ void Iteration_Step_SOR_4th_Order( int n_cells, Real *density_d, Real *potential_d, Real *potential_d_out, int nx, int ny, int nz, int n_ghost, Real dx, Real dy, Real dz, Real omega, int parity, Real epsilon,  bool *converged_d ){
+  
+  int tid_x, tid_y, tid_z, tid, tid_pot;
+  tid_x = blockIdx.x * blockDim.x + threadIdx.x;
+  tid_y = blockIdx.y * blockDim.y + threadIdx.y;
+  tid_z = blockIdx.z * blockDim.z + threadIdx.z;
+  
+  if (tid_x >= nx || tid_y >= ny || tid_z >= nz ) return;  
+  
+  int nx_pot, ny_pot;
+  nx_pot = nx + 2*n_ghost;
+  ny_pot = ny + 2*n_ghost;
+  // nz_pot = nz + 2*n_ghost;
+  
+  tid = tid_x + tid_y*nx + tid_z*nx*ny;
+  
+  tid_x += n_ghost;
+  tid_y += n_ghost;
+  tid_z += n_ghost;
+  tid_pot = tid_x + tid_y*nx_pot + tid_z*nx_pot*ny_pot; 
+  
   // //Set neighbors ids
+  int indx_l, indx_r, indx_d, indx_u, indx_b, indx_t;
   int indx_ll, indx_rr, indx_dd, indx_uu, indx_bb, indx_tt;
   
+  indx_l = tid_x-1;  //Left
+  indx_r = tid_x+1;  //Right
+  indx_d = tid_y-1;  //Down
+  indx_u = tid_y+1;  //Up
+  indx_b = tid_z-1;  //Bottom
+  indx_t = tid_z+1;  //Top
+
   indx_ll = tid_x-2;  //Two Left
   indx_rr = tid_x+2;  //Two Right
   indx_dd = tid_y-2;  //Two Down
@@ -173,7 +210,18 @@ __global__ void Iteration_Step_SOR( int n_cells, Real *density_d, Real *potentia
   indx_bb = tid_z-2;  //Two Bottom
   indx_tt = tid_z+2;  //Two Top
   
+  
+  Real rho, phi_c, phi_l, phi_r, phi_d, phi_u, phi_b, phi_t, phi_new;
   Real phi_ll, phi_rr, phi_dd, phi_uu, phi_bb, phi_tt;
+  rho = density_d[tid];
+  phi_c = potential_d[tid_pot];
+  phi_l = potential_d[ indx_l + tid_y*nx_pot + tid_z*nx_pot*ny_pot ];
+  phi_r = potential_d[ indx_r + tid_y*nx_pot + tid_z*nx_pot*ny_pot ];
+  phi_d = potential_d[ tid_x + indx_d*nx_pot + tid_z*nx_pot*ny_pot ];
+  phi_u = potential_d[ tid_x + indx_u*nx_pot + tid_z*nx_pot*ny_pot ];
+  phi_b = potential_d[ tid_x + tid_y*nx_pot + indx_b*nx_pot*ny_pot ];
+  phi_t = potential_d[ tid_x + tid_y*nx_pot + indx_t*nx_pot*ny_pot ];
+  
   phi_ll = potential_d[ indx_ll + tid_y*nx_pot + tid_z*nx_pot*ny_pot ];
   phi_rr = potential_d[ indx_rr + tid_y*nx_pot + tid_z*nx_pot*ny_pot ];
   phi_dd = potential_d[ tid_x + indx_dd*nx_pot + tid_z*nx_pot*ny_pot ];
@@ -181,33 +229,28 @@ __global__ void Iteration_Step_SOR( int n_cells, Real *density_d, Real *potentia
   phi_bb = potential_d[ tid_x + tid_y*nx_pot + indx_bb*nx_pot*ny_pot ];
   phi_tt = potential_d[ tid_x + tid_y*nx_pot + indx_tt*nx_pot*ny_pot ];
   
-  #endif
   
   
-  #ifdef SOR_4TH_ORDER
+  
+  
   phi_new = (1. - omega) *phi_c
               + ( omega / 90. ) * ( - phi_ll + 16. * phi_l + 16. * phi_r - phi_rr
 																		- phi_dd + 16. * phi_d + 16. * phi_u - phi_uu
 																		- phi_bb + 16. * phi_b + 16. * phi_t - phi_tt
 																		- 12. * dx * dx * rho			);
-
+  
   // phi_new = (1-omega)*phi_c + omega/6*( phi_l + phi_r + phi_d + phi_u + phi_b + phi_t - dx*dx*rho );
 
-  #else
-  phi_new = (1-omega)*phi_c + omega/6*( phi_l + phi_r + phi_d + phi_u + phi_b + phi_t - dx*dx*rho );
-  #endif
+
   
-  
-  potential_d[tid_pot] = phi_new;
+  potential_d_out[tid_pot] = phi_new;
   
   //Check the residual for the convergence criteria
   if ( ( fabs( ( phi_new - phi_c ) / phi_c ) > epsilon ) ) converged_d[0] = 0;
-  
-
-  
-  
-  
+    
 }
+
+
 
 void Potential_SOR_3D::Poisson_iteration( int n_cells, int nx, int ny, int nz, int n_ghost_potential, Real dx, Real dy, Real dz, Real omega, Real epsilon, Real *density_d, Real *potential_d, bool *converged_h, bool *converged_d ){
   
@@ -285,6 +328,32 @@ void Potential_SOR_3D::Poisson_iteration_Patial_2( int n_cells, int nx, int ny, 
   
 }
 
+
+#ifdef SOR_4TH_ORDER
+void Potential_SOR_3D::Poisson_iteration_4th_Order( int n_cells, int nx, int ny, int nz, int n_ghost_potential, Real dx, Real dy, Real dz, Real omega, Real epsilon, Real *density_d, Real *potential_d, Real *potential_d_out, bool *converged_h, bool *converged_d ){
+  
+  // set values for GPU kernels
+  int tpb_x = 16;
+  int tpb_y = 8;
+  int tpb_z = 8;
+  int ngrid_x =  (nx_local + tpb_x - 1) / tpb_x;
+  int ngrid_y =  (ny_local + tpb_y - 1) / tpb_y;
+  int ngrid_z =  (nz_local + tpb_z - 1) / tpb_z;
+  // number of blocks per 1D grid  
+  dim3 dim3dGrid(ngrid_x, ngrid_y, ngrid_z);
+  //  number of threads per 1D block   
+  dim3 dim3dBlock(tpb_x, tpb_y, tpb_z);
+  
+  
+  cudaMemset( converged_d, 1, sizeof(bool) );
+  
+  // Iteration_Step_SOR<<<dim3dGrid_half,dim3dBlock>>>( n_cells, density_d, potential_d, nx, ny, nz, n_ghost_potential, dx, dy, dz, omega, 1, epsilon, converged_d );
+  hipLaunchKernelGGL( Iteration_Step_SOR_4th_Order, dim3dGrid, dim3dBlock, 0, 0, n_cells, density_d, potential_d, potential_d_out, nx, ny, nz, n_ghost_potential, dx, dy, dz, omega, 1, epsilon, converged_d );
+  
+  cudaMemcpy( converged_h, converged_d, sizeof(bool), cudaMemcpyDeviceToHost );
+  
+}
+#endif
 
 __global__ void Set_Isolated_Boundary_GPU_kernel( int direction, int side, int size_buffer, int n_i, int n_j, int n_ghost, int nx_pot, int ny_pot, int nz_pot,  Real *potential_d, Real *boundary_d   ){
   
