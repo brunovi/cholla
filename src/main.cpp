@@ -120,6 +120,7 @@ int main(int argc, char *argv[])
 
   #ifdef GRAVITY
   // Get the gravitaional potential for the first timestep
+  chprintf("Skipped Paris Solve\n");
   // G.Compute_Gravitational_Potential( &P);
   #endif
 
