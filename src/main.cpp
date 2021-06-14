@@ -120,7 +120,7 @@ int main(int argc, char *argv[])
 
   #ifdef GRAVITY
   // Get the gravitaional potential for the first timestep
-  // G.Compute_Gravitational_Potential( &P);
+  G.Compute_Gravitational_Potential( &P);
   #endif
 
   // Set boundary conditions (assign appropriate values to ghost cells) for hydro and potential
