@@ -1,5 +1,5 @@
 
-POISSON_SOLVER ?= -DPARIS
+POISSON_SOLVER ?= -DPFFT
 
 include builds/make.type.gravity
 
