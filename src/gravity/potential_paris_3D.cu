@@ -7,15 +7,15 @@
 #include <cfloat>
 #include <climits>
 
-static void __attribute__((unused)) printDiff(const Real *p, const Real *q, const int ng, const int nx, const int ny, const int nz, const bool plot = false)
+static void __attribute__((unused)) prlongDiff(const Real *p, const Real *q, const long ng, const long nx, const long ny, const long nz, const bool plot = false)
 {
   Real dMax = 0, dSum = 0, dSum2 = 0;
   Real qMax = 0, qSum = 0, qSum2 = 0;
 #pragma omp parallel for reduction(max:dMax,qMax) reduction(+:dSum,dSum2,qSum,qSum2)
-  for (int k = 0; k < nz; k++) {
-    for (int j = 0; j < ny; j++) {
-      for (int i = 0; i < nx; i++) {
-        const int ijk = i+ng+(nx+ng+ng)*(j+ng+(ny+ng+ng)*(k+ng));
+  for (long k = 0; k < nz; k++) {
+    for (long j = 0; j < ny; j++) {
+      for (long i = 0; i < nx; i++) {
+        const long ijk = i+ng+(nx+ng+ng)*(j+ng+(ny+ng+ng)*(k+ng));
         const Real qAbs = fabs(q[ijk]);
         qMax = std::max(qMax,qAbs);
         qSum += qAbs;
@@ -31,20 +31,20 @@ static void __attribute__((unused)) printDiff(const Real *p, const Real *q, cons
   Real sums[4] = {qSum,qSum2,dSum,dSum2};
   MPI_Allreduce(MPI_IN_PLACE,&maxs,2,MPI_DOUBLE,MPI_MAX,MPI_COMM_WORLD);
   MPI_Allreduce(MPI_IN_PLACE,&sums,4,MPI_DOUBLE,MPI_SUM,MPI_COMM_WORLD);
-  chprintf(" Poisson-Solver Diff: L1 %g L2 %g Linf %g\n",sums[2]/sums[0],sqrt(sums[3]/sums[1]),maxs[1]/maxs[0]);
+  chprlongf(" Poisson-Solver Diff: L1 %g L2 %g Linf %g\n",sums[2]/sums[0],sqrt(sums[3]/sums[1]),maxs[1]/maxs[0]);
   fflush(stdout);
   if (!plot) return;
 
-  printf("###\n");
-  const int k = nz/2;
-  //for (int j = 0; j < ny; j++) {
-  const int j = ny/2;
-    for (int i = 0; i < nx; i++) {
-      const int ijk = i+ng+(nx+ng+ng)*(j+ng+(ny+ng+ng)*(k+ng));
-      //printf("%d %d %g %g %g\n",j,i,q[ijk],p[ijk],q[ijk]-p[ijk]);
-      printf("%d %g %g %g\n",i,q[ijk],p[ijk],q[ijk]-p[ijk]);
+  prlongf("###\n");
+  const long k = nz/2;
+  //for (long j = 0; j < ny; j++) {
+  const long j = ny/2;
+    for (long i = 0; i < nx; i++) {
+      const long ijk = i+ng+(nx+ng+ng)*(j+ng+(ny+ng+ng)*(k+ng));
+      //prlongf("%d %d %g %g %g\n",j,i,q[ijk],p[ijk],q[ijk]-p[ijk]);
+      prlongf("%d %g %g %g\n",i,q[ijk],p[ijk],q[ijk]-p[ijk]);
     }
-    printf("\n");
+    prlongf("\n");
   //}
 
   MPI_Finalize();
@@ -109,34 +109,34 @@ void Potential_Paris_3D::Get_Analytic_Potential(const Real *const density, Real 
   const Real ddly = dly*dly;
   const Real ddlz = dlz*dlz;
 
-  const int ni = dn_[2];
-  const int nj = dn_[1];
-  const int nk = dn_[0];
+  const long ni = dn_[2];
+  const long nj = dn_[1];
+  const long nk = dn_[0];
 
   gpuFor(
     nk,nj,ni,
-    GPU_LAMBDA(const int k, const int j, const int i) {
+    GPU_LAMBDA(const long k, const long j, const long i) {
       const Real x = dlx*(xBegin+dx*(Real(i)+0.5))+bx;
       const Real y = dly*(yBegin+dy*(Real(j)+0.5))+by;
       const Real z = dlz*(zBegin+dz*(Real(k)+0.5))+bz;
-      const int iab = i+ni*(j+nj*k);
+      const long iab = i+ni*(j+nj*k);
       da[iab] = db[iab]-analyticD(x,y,z,ddlx,ddly,ddlz);
     });
 
   assert(pz_);
   pz_->solve(minBytes_,da,db);
 
-  const int ngi = ni+N_GHOST_POTENTIAL+N_GHOST_POTENTIAL;
-  const int ngj = nj+N_GHOST_POTENTIAL+N_GHOST_POTENTIAL;
+  const long ngi = ni+N_GHOST_POTENTIAL+N_GHOST_POTENTIAL;
+  const long ngj = nj+N_GHOST_POTENTIAL+N_GHOST_POTENTIAL;
 
   gpuFor(
     nk,nj,ni,
-    GPU_LAMBDA(const int k, const int j, const int i) {
+    GPU_LAMBDA(const long k, const long j, const long i) {
       const Real x = dlx*(xBegin+dx*(Real(i)+0.5))+bx;
       const Real y = dly*(yBegin+dy*(Real(j)+0.5))+by;
       const Real z = dlz*(zBegin+dz*(Real(k)+0.5))+bz;
-      const int ia = i+ni*(j+nj*k);
-      const int ib = i+N_GHOST_POTENTIAL+ngi*(j+N_GHOST_POTENTIAL+ngj*(k+N_GHOST_POTENTIAL));
+      const long ia = i+ni*(j+nj*k);
+      const long ib = i+N_GHOST_POTENTIAL+ngi*(j+N_GHOST_POTENTIAL+ngj*(k+N_GHOST_POTENTIAL));
       db[ib] = da[ia]+analyticF(x,y,z);
     });
 
@@ -156,28 +156,28 @@ void Potential_Paris_3D::Get_Potential(const Real *const density, Real *const po
   Real *const db = db_;
   assert(density);
 
-  const int ni = dn_[2];
-  const int nj = dn_[1];
-  const int nk = dn_[0];
+  const long ni = dn_[2];
+  const long nj = dn_[1];
+  const long nk = dn_[0];
 
-  const int n = ni*nj*nk;
+  const long n = ni*nj*nk;
   #ifdef GRAVITY_GPU
   CHECK(cudaMemcpy(db,density,densityBytes_,cudaMemcpyDeviceToDevice));
   #else
   CHECK(cudaMemcpy(db,density,densityBytes_,cudaMemcpyHostToDevice));
   #endif
-  const int ngi = ni+N_GHOST_POTENTIAL+N_GHOST_POTENTIAL;
-  const int ngj = nj+N_GHOST_POTENTIAL+N_GHOST_POTENTIAL;
+  const long ngi = ni+N_GHOST_POTENTIAL+N_GHOST_POTENTIAL;
+  const long ngj = nj+N_GHOST_POTENTIAL+N_GHOST_POTENTIAL;
 
   if (pp_) {
 
-    gpuFor(n,GPU_LAMBDA(const int i) { db[i] = scale*(db[i]-offset); });
+    gpuFor(n,GPU_LAMBDA(const long i) { db[i] = scale*(db[i]-offset); });
     pp_->solve(minBytes_,db,da);
     gpuFor(
       nk,nj,ni,
-      GPU_LAMBDA(const int k, const int j, const int i) {
-        const int ia = i+ni*(j+nj*k);
-        const int ib = i+N_GHOST_POTENTIAL+ngi*(j+N_GHOST_POTENTIAL+ngj*(k+N_GHOST_POTENTIAL));
+      GPU_LAMBDA(const long k, const long j, const long i) {
+        const long ia = i+ni*(j+nj*k);
+        const long ib = i+N_GHOST_POTENTIAL+ngi*(j+N_GHOST_POTENTIAL+ngj*(k+N_GHOST_POTENTIAL));
         db[ib] = da[ia];
       });
 
@@ -206,11 +206,11 @@ void Potential_Paris_3D::Get_Potential(const Real *const density, Real *const po
 
     gpuFor(
       nk,nj,ni,
-      GPU_LAMBDA(const int k, const int j, const int i) {
+      GPU_LAMBDA(const long k, const long j, const long i) {
         const Real x = xBegin+dx*(Real(i)+0.5);
         const Real y = yBegin+dy*(Real(j)+0.5);
         const Real z = zBegin+dz*(Real(k)+0.5);
-        const int iab = i+ni*(j+nj*k);
+        const long iab = i+ni*(j+nj*k);
         da[iab] = scale*(db[iab]-offset-rho0*exp(-x*x-y*y-z*z));
       });
 
@@ -222,14 +222,14 @@ void Potential_Paris_3D::Get_Potential(const Real *const density, Real *const po
 
     gpuFor(
       nk,nj,ni,
-      GPU_LAMBDA(const int k, const int j, const int i) {
+      GPU_LAMBDA(const long k, const long j, const long i) {
         const Real x = xBegin+dx*(Real(i)+0.5);
         const Real y = yBegin+dy*(Real(j)+0.5);
         const Real z = zBegin+dz*(Real(k)+0.5);
         const Real r = sqrt(x*x+y*y+z*z);
         const Real v0 = (r < DBL_EPSILON) ? lim0+lim2*r*r : ngmdr0*erf(r)/r;
-        const int ia = i+ni*(j+nj*k);
-        const int ib = i+N_GHOST_POTENTIAL+ngi*(j+N_GHOST_POTENTIAL+ngj*(k+N_GHOST_POTENTIAL));
+        const long ia = i+ni*(j+nj*k);
+        const long ib = i+N_GHOST_POTENTIAL+ngi*(j+N_GHOST_POTENTIAL+ngj*(k+N_GHOST_POTENTIAL));
         db[ib] = da[ia]+v0;
       });
   }
@@ -243,19 +243,19 @@ void Potential_Paris_3D::Get_Potential(const Real *const density, Real *const po
 
 void Potential_Paris_3D::Initialize(const Real lx, const Real ly, const Real lz, const Real xMin, const Real yMin, const Real zMin, const int nx, const int ny, const int nz, const int nxReal, const int nyReal, const int nzReal, const Real dx, const Real dy, const Real dz, const bool periodic)
 {
-  chprintf(" Using Poisson Solver: Paris ");
-  if (periodic) chprintf("Periodic");
-  else chprintf("Antisymmetric");
+  chprlongf(" Using Poisson Solver: Paris ");
+  if (periodic) chprlongf("Periodic");
+  else chprlongf("Antisymmetric");
 #ifdef PARIS_5PT
-  chprintf(" 5-Point\n");
+  chprlongf(" 5-Polong\n");
 #elif defined PARIS_3PT
-  chprintf(" 3-Point\n");
+  chprlongf(" 3-Polong\n");
 #else
-  chprintf(" Spectral\n");
+  chprlongf(" Spectral\n");
 #endif
 
   const long nl012 = long(nxReal)*long(nyReal)*long(nzReal);
-  assert(nl012 <= INT_MAX);
+  assert(nl012 <= long_MAX);
 
   dn_[0] = nzReal;
   dn_[1] = nyReal;
@@ -275,10 +275,10 @@ void Potential_Paris_3D::Initialize(const Real lx, const Real ly, const Real lz,
   MPI_Allreduce(myLo_,lo_,3,MPI_DOUBLE,MPI_MIN,MPI_COMM_WORLD);
 
   const Real hi[3] = {lo_[0]+lz-dr_[0],lo_[1]+ly-dr_[1],lo_[2]+lx-dr_[2]};
-  const int n[3] = {nz,ny,nx};
-  const int m[3] = {n[0]/nzReal,n[1]/nyReal,n[2]/nxReal};
-  const int id[3] = {int(round((zMin-lo_[0])/(dn_[0]*dr_[0]))),int(round((yMin-lo_[1])/(dn_[1]*dr_[1]))),int(round((xMin-lo_[2])/(dn_[2]*dr_[2])))};
-  chprintf("  Paris: [ %g %g %g ]-[ %g %g %g ] N_local[ %d %d %d ] Tasks[ %d %d %d ]\n",lo_[2],lo_[1],lo_[0],lo_[2]+lx,lo_[1]+ly,lo_[0]+lz,dn_[2],dn_[1],dn_[0],m[2],m[1],m[0]);
+  const long n[3] = {nz,ny,nx};
+  const long m[3] = {n[0]/nzReal,n[1]/nyReal,n[2]/nxReal};
+  const long id[3] = {long(round((zMin-lo_[0])/(dn_[0]*dr_[0]))),long(round((yMin-lo_[1])/(dn_[1]*dr_[1]))),long(round((xMin-lo_[2])/(dn_[2]*dr_[2])))};
+  chprlongf("  Paris: [ %g %g %g ]-[ %g %g %g ] N_local[ %d %d %d ] Tasks[ %d %d %d ]\n",lo_[2],lo_[1],lo_[0],lo_[2]+lx,lo_[1]+ly,lo_[0]+lz,dn_[2],dn_[1],dn_[0],m[2],m[1],m[0]);
 
   assert(dn_[0] == n[0]/m[0]);
   assert(dn_[1] == n[1]/m[1]);
@@ -298,10 +298,10 @@ void Potential_Paris_3D::Initialize(const Real lx, const Real ly, const Real lz,
   const long gg = N_GHOST_POTENTIAL+N_GHOST_POTENTIAL;
   potentialBytes_ = long(sizeof(Real))*(dn_[0]+gg)*(dn_[1]+gg)*(dn_[2]+gg);
 
-  CHECK(cudaMalloc(reinterpret_cast<void **>(&da_),std::max(minBytes_,densityBytes_)));
+  CHECK(cudaMalloc(relongerpret_cast<void **>(&da_),std::max(minBytes_,densityBytes_)));
   assert(da_);
   
-  CHECK(cudaMalloc(reinterpret_cast<void **>(&db_),std::max(minBytes_,potentialBytes_)));
+  CHECK(cudaMalloc(relongerpret_cast<void **>(&db_),std::max(minBytes_,potentialBytes_)));
   assert(db_);
 }
 
